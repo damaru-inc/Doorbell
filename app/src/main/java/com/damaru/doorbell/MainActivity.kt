@@ -45,17 +45,17 @@ fun getCardColors(connectionState: ConnectionState): CardColors {
 
     return when (connectionState) {
         ConnectionState.CONNECTED -> CardDefaults.cardColors(
-            containerColor = Color.Green,
-            contentColor = Color.Black)
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary)
         ConnectionState.DATA_PRESENT -> CardDefaults.cardColors(
-            containerColor = Color.Blue,
-            contentColor = Color.Black)
+            containerColor = MaterialTheme.colorScheme.tertiary,
+            contentColor = MaterialTheme.colorScheme.onTertiary)
         ConnectionState.DISCONNECTED -> CardDefaults.cardColors(
-            containerColor = Color.Red,
-            contentColor = Color.Black)
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary)
         ConnectionState.UNKNOWN -> CardDefaults.cardColors(
-            containerColor = Color.LightGray,
-            contentColor = Color.Black)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
