@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
@@ -17,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,27 +72,11 @@ fun MainScreen(
         ButtonBar(
             connected = doorbellModel.connected.value,
             onConnect = { checked -> doorbellModel.connect(checked) },
+            sendData = { doorbellModel.handleData() },
+            sendPing = { doorbellModel.handlePing() },
+            sendDisconnect = { doorbellModel.handleSensorDisconnect() },
+            testMode = doorbellModel.testMode(),
             modifier = modifier
-        )
-    }
-}
-
-@Composable
-fun ServiceStatusCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    connectionState: ConnectionState
-) {
-    Card(
-        modifier = modifier
-            .padding(4.dp)
-            .fillMaxSize(0.8f),
-        shape = CardDefaults.shape,
-        colors = getCardColors(connectionState)
-    ) {
-        Text(
-            text = title,
-            modifier = modifier.align(Alignment.CenterHorizontally)
         )
     }
 }
@@ -102,17 +87,45 @@ fun StatusPane(
     doorbellModel: DoorbellModel = viewModel()
 ) {
     Column (
-        modifier = modifier.padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = modifier.padding(4.dp)
+        //horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ServiceStatusCard(
-            modifier = modifier,
-            title = "Connected",
-            connectionState = doorbellModel.connected.value)
-        ServiceStatusCard(
-            modifier = modifier,
-            title = "Doorbell",
-            connectionState = doorbellModel.sensorConnected.value)
+        Card(
+            modifier = modifier
+                .padding(4.dp)
+                .weight(0.1f)
+                .fillMaxWidth(1f),
+            shape = CardDefaults.shape,
+            colors = getCardColors(doorbellModel.connected.value)
+        ) {
+            Text(
+                text = "Connected",
+                modifier = modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
+        Card(
+            modifier = modifier
+                .padding(4.dp)
+                .weight(0.8f)
+                .fillMaxWidth(1f)
+                .align(Alignment.CenterHorizontally),
+            shape = CardDefaults.shape,
+            colors = getCardColors(doorbellModel.sensorConnected.value)
+        ) {
+            Text(
+                text = "Doorbell",
+                modifier = modifier.align(Alignment.CenterHorizontally)
+            )
+            Text(
+                text = doorbellModel.lastMessage.value,
+                modifier = modifier.align(Alignment.CenterHorizontally)
+            )
+            Text(
+                text = doorbellModel.lastMessageReceived.value,
+                modifier = modifier.align(Alignment.CenterHorizontally)
+            )
+        }
     }
 }
 
@@ -120,19 +133,62 @@ fun StatusPane(
 fun ButtonBar(
     connected: ConnectionState,
     onConnect: (Boolean) -> Unit,
+    sendPing: () -> Unit,
+    sendData: () -> Unit,
+    sendDisconnect: () -> Unit,
+    testMode : Boolean,
     modifier: Modifier = Modifier) {
-    Row (
-        modifier = modifier.padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ){
-        Text(
-            modifier = Modifier.padding(8.dp),
-            text = "Connect"
-        )
-        Switch(
-            checked = connected == ConnectionState.CONNECTED,
-            onCheckedChange = {onConnect(it)}
-        )
+    Column (
+        modifier = modifier.fillMaxWidth(1f),
+        horizontalAlignment = Alignment.CenterHorizontally
+            ){
+        Row(
+            modifier = modifier.padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                modifier = Modifier.padding(8.dp),
+                text = "Connect"
+            )
+            Switch(
+                checked = connected == ConnectionState.CONNECTED,
+                onCheckedChange = { onConnect(it) }
+            )
+        }
+        if (testMode) {
+            Row(
+                modifier = modifier.padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    modifier = Modifier.padding(8.dp),
+                    onClick = { sendPing() }
+                ) {
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Ping"
+                    )
+                }
+                Button(
+                    modifier = Modifier.padding(8.dp),
+                    onClick = { sendData() }
+                ) {
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Data"
+                    )
+                }
+                Button(
+                    modifier = Modifier.padding(8.dp),
+                    onClick = { sendDisconnect() }
+                ) {
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Disconnect"
+                    )
+                }
+            }
+        }
     }
 }
 
