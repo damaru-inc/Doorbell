@@ -1,6 +1,8 @@
 package com.damaru.doorbell
 
+import android.media.MediaPlayer
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -21,12 +23,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.damaru.doorbell.ui.theme.DoorbellTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val mediaPlayer by lazy {
+        MediaPlayer.create(this, R.raw.bell)
+    }
+
+    companion object {
+        const val TAG = "Doorbell"
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
+
+        doorbellModel.setBellCallback {
+            Log.d(TAG, "Bell!!!")
+            mediaPlayer?.start()
+        }
+
         setContent {
             DoorbellTheme {
                 // A surface container using the 'background' color from the theme
@@ -59,6 +79,18 @@ fun getCardColors(connectionState: ConnectionState): CardColors {
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+@Composable
+fun getConnectionDescription(connectionState: ConnectionState): String {
+
+    var status = when (connectionState) {
+        ConnectionState.CONNECTED -> "connected."
+        ConnectionState.DATA_PRESENT -> "connected."
+        ConnectionState.DISCONNECTED -> "disconnected."
+        ConnectionState.UNKNOWN -> "unknown"
+    }
+
+    return "Sensor's state is " + status
+}
 
 @Composable
 fun MainScreen(
@@ -71,7 +103,7 @@ fun MainScreen(
         StatusPane(modifier = modifier.weight(1.0f), doorbellModel = doorbellModel)
         ButtonBar(
             connected = doorbellModel.connected.value,
-            onConnect = { checked -> doorbellModel.connect(checked) },
+            onConnect = { checked -> doorbellModel.toggleConnect(checked) },
             sendData = { doorbellModel.handleData() },
             sendPing = { doorbellModel.handlePing() },
             sendDisconnect = { doorbellModel.handleSensorDisconnect() },
@@ -90,39 +122,46 @@ fun StatusPane(
         modifier = modifier.padding(4.dp)
         //horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Card(
-            modifier = modifier
-                .padding(4.dp)
-                .weight(0.1f)
-                .fillMaxWidth(1f),
-            shape = CardDefaults.shape,
-            colors = getCardColors(doorbellModel.connected.value)
-        ) {
-            Text(
-                text = "Connected",
-                modifier = modifier.align(Alignment.CenterHorizontally)
-            )
-        }
+//        Card(
+//            modifier = modifier
+//                .padding(4.dp)
+//                .weight(0.1f)
+//                .fillMaxWidth(1f),
+//            shape = CardDefaults.shape,
+//            colors = getCardColors(doorbellModel.connected.value)
+//        ) {
+//            Text(
+//                text = "Connected",
+//                modifier = modifier.align(Alignment.CenterHorizontally)
+//            )
+//        }
 
         Card(
             modifier = modifier
                 .padding(4.dp)
-                .weight(0.8f)
                 .fillMaxWidth(1f)
                 .align(Alignment.CenterHorizontally),
             shape = CardDefaults.shape,
             colors = getCardColors(doorbellModel.sensorConnected.value)
         ) {
             Text(
-                text = "Doorbell",
-                modifier = modifier.align(Alignment.CenterHorizontally)
+                text = "Doggie Doorbell", //doorbellModel.lastMessage.value,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = modifier.align(Alignment.CenterHorizontally).padding(vertical = 24.dp)
             )
             Text(
                 text = doorbellModel.lastMessage.value,
+                style = MaterialTheme.typography.titleLarge,
                 modifier = modifier.align(Alignment.CenterHorizontally)
             )
             Text(
                 text = doorbellModel.lastMessageReceived.value,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = modifier.align(Alignment.CenterHorizontally)
+            )
+            Text(
+                text = getConnectionDescription(doorbellModel.sensorConnected.value),
+                style = MaterialTheme.typography.bodyLarge,
                 modifier = modifier.align(Alignment.CenterHorizontally)
             )
         }

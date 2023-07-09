@@ -4,6 +4,16 @@ import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions
+import org.eclipse.paho.client.mqttv3.IMqttActionListener
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
+import org.eclipse.paho.client.mqttv3.IMqttToken
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+import org.eclipse.paho.client.mqttv3.MqttException
+import org.eclipse.paho.client.mqttv3.MqttMessage
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -11,12 +21,23 @@ enum class ConnectionState {
     CONNECTED, DATA_PRESENT, DISCONNECTED, UNKNOWN
 }
 
+private const val MQTT_DISCONNECT_BUFFER_SIZE = 100
+
 class DoorbellModel : ViewModel() {
+
+    companion object {
+        const val TAG = "Doorbell"
+    }
 
     private val _connected = mutableStateOf<ConnectionState>(ConnectionState.DISCONNECTED)
     private val _sensorConnected = mutableStateOf<ConnectionState>(ConnectionState.UNKNOWN)
     private val _lastMessage = mutableStateOf<String>("")
     private val _lastMessageReceived = mutableStateOf<String>("")
+
+    private var bellCallback : () -> Unit = {}
+
+    private val mqttAndroidClient: MqttAsyncClient =
+        MqttAsyncClient(SOLACE_MQTT_HOST, "Pixel7", MemoryPersistence())
 
     val connected: State<ConnectionState>
         get() = _connected
@@ -30,16 +51,110 @@ class DoorbellModel : ViewModel() {
     val lastMessageReceived: State<String>
         get() = _lastMessageReceived
 
-    fun connect(doConnect: Boolean) {
+    init {
+        mqttAndroidClient.setCallback(object : MqttCallbackExtended {
+            override fun connectionLost(cause: Throwable?) {
+                toggleConnect(false)
+            }
 
-        if (doConnect) {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                val payload = message.toString()
+                Log.w(TAG, "Message received : $topic: $payload")
+
+                if (topic != null && topic.contains("proximity/control")) {
+                    if (payload.equals("ping") || payload.equals("connected")) {
+                        handlePing()
+                    } else {
+                        handleMessage("Disconnected")
+                        _sensorConnected.value = ConnectionState.DISCONNECTED
+                    }
+                }
+
+                if (topic.equals("proximity/data")) {
+                    handleData()
+                }
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+                TODO("Not yet implemented")
+            }
+
+            override fun connectComplete(reconnect: Boolean, serverURI: String?) {
+                Log.d(TAG, "connectComplete at $serverURI")
+            }
+
+        })
+    }
+
+
+    fun connectClient() {
+        val mqttConnectOptions = MqttConnectOptions()
+        mqttConnectOptions.isAutomaticReconnect = true
+        mqttConnectOptions.isCleanSession = false
+        mqttConnectOptions.isAutomaticReconnect = SOLACE_CONNECTION_RECONNECT
+        mqttConnectOptions.isCleanSession = SOLACE_CONNECTION_CLEAN_SESSION
+        mqttConnectOptions.userName = SOLACE_CLIENT_USER_NAME
+        mqttConnectOptions.password = SOLACE_CLIENT_PASSWORD.toCharArray()
+        mqttConnectOptions.connectionTimeout = SOLACE_CONNECTION_TIMEOUT
+        mqttConnectOptions.keepAliveInterval = SOLACE_CONNECTION_KEEP_ALIVE_INTERVAL
+
+        try {
+            mqttAndroidClient.connect(mqttConnectOptions, null, object : IMqttActionListener {
+                override fun onSuccess(asyncActionToken: IMqttToken?) {
+
+                    val disconnectedBufferOptions = DisconnectedBufferOptions()
+                    disconnectedBufferOptions.isBufferEnabled = true
+                    disconnectedBufferOptions.bufferSize = MQTT_DISCONNECT_BUFFER_SIZE
+                    disconnectedBufferOptions.isPersistBuffer = false
+                    disconnectedBufferOptions.isDeleteOldestMessages = false
+
+                    mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
+                    subscribe()
+                    setConnectionStatus(true)
+
+                }
+
+                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                    Log.e(TAG, exception?.message.toString())
+                }
+            })
+        } catch (ex: MqttException) {
+            Log.e(TAG, ex.toString())
+            setConnectionStatus(false)
+            ex.printStackTrace()
+        }
+    }
+
+    fun subscribe() {
+        mqttAndroidClient.subscribe("proximity/#", 0, null, object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.e(TAG, "Subscribed.")
+            }
+
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e(TAG, "Subscription failed.")
+            }
+        })
+    }
+
+    fun setConnectionStatus(connected: Boolean) {
+        if (connected) {
             _connected.value = ConnectionState.CONNECTED
         } else {
             _connected.value = ConnectionState.DISCONNECTED
             _sensorConnected.value = ConnectionState.UNKNOWN
         }
+    }
 
-        Log.d("me", "connect: $doConnect $_connected")
+    fun toggleConnect(doConnect: Boolean) {
+
+        if (doConnect) {
+            connectClient()
+        } else {
+            mqttAndroidClient.disconnect()
+            setConnectionStatus(false)
+        }
+        Log.d(TAG, "toggleConnect: $doConnect $_connected")
     }
 
     fun handleMessage(message : String) {
@@ -48,22 +163,28 @@ class DoorbellModel : ViewModel() {
         val formatter = SimpleDateFormat.getTimeInstance()
         val date = Date()
         _lastMessageReceived.value = formatter.format(date)
-        _sensorConnected.value = ConnectionState.CONNECTED
     }
 
     fun handleData() {
-        handleMessage("Data")
+        handleMessage("Dog")
+        _sensorConnected.value = ConnectionState.DATA_PRESENT
+        bellCallback()
     }
 
     fun handlePing() {
         handleMessage("Ping")
+        _sensorConnected.value = ConnectionState.CONNECTED
     }
 
     fun handleSensorDisconnect() {
         _sensorConnected.value = ConnectionState.DISCONNECTED
     }
 
+    fun setBellCallback(callback : () -> Unit) {
+        bellCallback = callback;
+    }
+
     fun testMode() : Boolean {
-        return true
+        return false
     }
 }
