@@ -16,6 +16,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Timer
+import kotlin.concurrent.schedule
 
 enum class ConnectionState {
     CONNECTED, DATA_PRESENT, DISCONNECTED, UNKNOWN
@@ -54,12 +56,41 @@ class DoorbellModel : ViewModel() {
     init {
         mqttAndroidClient.setCallback(object : MqttCallbackExtended {
             override fun connectionLost(cause: Throwable?) {
-                toggleConnect(false)
+                Log.w(TAG, "connectionLost because " + cause?.message)
+
+                Timer("checkingConnection", false).schedule(3000) {
+                    Log.d(TAG, "Checking connection, try #1.")
+                    if (mqttAndroidClient.isConnected) {
+                        Log.d(TAG, "Reconnected.")
+                        subscribe()
+                    } else {
+                        Log.w(TAG, "connectionLost: still down.")
+                        Timer("checkingConnection", false).schedule(3000) {
+                            Log.d(TAG, "Checking connection, try #2.")
+                            if (mqttAndroidClient.isConnected) {
+                                Log.d(TAG, "Reconnected.")
+                                subscribe()
+                            } else {
+                                Log.w(TAG, "connectionLost: still down.")
+                                Timer("checkingConnection", false).schedule(3000) {
+                                    Log.d(TAG, "Checking connection, try #3.")
+                                    if (mqttAndroidClient.isConnected) {
+                                        Log.d(TAG, "Reconnected.")
+                                        subscribe()
+                                    } else {
+                                        Log.w(TAG, "connectionLost: still down.")
+                                        setConnectionStatus(false)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             override fun messageArrived(topic: String?, message: MqttMessage?) {
                 val payload = message.toString()
-                Log.w(TAG, "Message received : $topic: $payload")
+                Log.d(TAG, "Message received : $topic: $payload")
 
                 if (topic != null && topic.contains("proximity/control")) {
                     if (payload.equals("ping") || payload.equals("connected")) {
@@ -81,6 +112,7 @@ class DoorbellModel : ViewModel() {
 
             override fun connectComplete(reconnect: Boolean, serverURI: String?) {
                 Log.d(TAG, "connectComplete at $serverURI")
+                setConnectionStatus(true)
             }
 
         })
@@ -88,9 +120,8 @@ class DoorbellModel : ViewModel() {
 
 
     fun connectClient() {
+
         val mqttConnectOptions = MqttConnectOptions()
-        mqttConnectOptions.isAutomaticReconnect = true
-        mqttConnectOptions.isCleanSession = false
         mqttConnectOptions.isAutomaticReconnect = SOLACE_CONNECTION_RECONNECT
         mqttConnectOptions.isCleanSession = SOLACE_CONNECTION_CLEAN_SESSION
         mqttConnectOptions.userName = SOLACE_CLIENT_USER_NAME
@@ -107,7 +138,6 @@ class DoorbellModel : ViewModel() {
                     disconnectedBufferOptions.bufferSize = MQTT_DISCONNECT_BUFFER_SIZE
                     disconnectedBufferOptions.isPersistBuffer = false
                     disconnectedBufferOptions.isDeleteOldestMessages = false
-
                     mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
                     subscribe()
                     setConnectionStatus(true)
@@ -115,7 +145,7 @@ class DoorbellModel : ViewModel() {
                 }
 
                 override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
-                    Log.e(TAG, exception?.message.toString())
+                    Log.e(TAG, "Failed to connect: " + exception.toString())
                 }
             })
         } catch (ex: MqttException) {
@@ -148,13 +178,19 @@ class DoorbellModel : ViewModel() {
 
     fun toggleConnect(doConnect: Boolean) {
 
+        Log.d(TAG, "toggleConnect: $doConnect $_connected")
         if (doConnect) {
+            if (mqttAndroidClient.isConnected) {
+                Log.d(TAG, "connectClient: already connected.")
+                return;
+            }
             connectClient()
         } else {
-            mqttAndroidClient.disconnect()
+            if (mqttAndroidClient.isConnected) {
+                mqttAndroidClient.disconnect()
+            }
             setConnectionStatus(false)
         }
-        Log.d(TAG, "toggleConnect: $doConnect $_connected")
     }
 
     fun handleMessage(message : String) {
@@ -182,6 +218,12 @@ class DoorbellModel : ViewModel() {
 
     fun setBellCallback(callback : () -> Unit) {
         bellCallback = callback;
+    }
+
+    fun destroy() {
+        toggleConnect(false)
+        Log.d(TAG, "destroy: Closing the client.")
+        mqttAndroidClient.close()
     }
 
     fun testMode() : Boolean {

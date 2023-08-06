@@ -1,6 +1,14 @@
 package com.damaru.doorbell
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -23,28 +31,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.damaru.doorbell.ui.theme.DoorbellTheme
 
+
 class MainActivity : ComponentActivity() {
 
+    val channelId = "doorbell"
+    val notificationId = 1
+
     private val mediaPlayer by lazy {
-        MediaPlayer.create(this, R.raw.bell)
+        MediaPlayer.create(this, R.raw.dingdong)
     }
 
     companion object {
-        const val TAG = "Doorbell"
+        const val TAG = "DoorbellUI"
     }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        createNotificationChannel()
         var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
 
         doorbellModel.setBellCallback {
             Log.d(TAG, "Bell!!!")
             mediaPlayer?.start()
+            doNotification(applicationContext)
         }
 
         setContent {
@@ -58,6 +75,72 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun doNotification(context: Context) {
+        var builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.mipmap.ic_doorbell)
+            .setContentTitle("Dog!")
+            .setContentText("Woof!")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        with(NotificationManagerCompat.from(context)) {
+            // notificationId is a unique int for each notification that you must define
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.d(TAG, "No permission to notify.")
+                //ActivityCompat.requestPermissions(, Manifest.permission.POST_NOTIFICATIONS)
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return
+            }
+            val areNotificationsEnabled = areNotificationsEnabled()
+            Log.d(TAG, "Doing notify. areNotificationsEnabled: " + areNotificationsEnabled)
+            notify(notificationId, builder.build())
+        }
+    }
+
+    private fun createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Log.d(TAG, "Setting up the notification channel.")
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val name = "doorbell"
+            val descriptionText = "doorbell"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            // doorbell is the channel id.
+            val channel = NotificationChannel(channelId, name, importance).apply {
+                description = descriptionText
+            }
+            val audioAttributes: AudioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .build()
+            channel.setSound(soundUri, audioAttributes)
+            // Register the channel with the system
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        } else {
+            Log.w(TAG, "Couldn't set up the notification channel.")
+        }
+    }
+
+    @Override
+    override fun onDestroy() {
+        Log.d(TAG, "onDestroy")
+        super.onDestroy()
+        var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
+        doorbellModel.destroy()
+
     }
 }
 
@@ -147,7 +230,9 @@ fun StatusPane(
             Text(
                 text = "Doggie Doorbell", //doorbellModel.lastMessage.value,
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = modifier.align(Alignment.CenterHorizontally).padding(vertical = 24.dp)
+                modifier = modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(vertical = 24.dp)
             )
             Text(
                 text = doorbellModel.lastMessage.value,
