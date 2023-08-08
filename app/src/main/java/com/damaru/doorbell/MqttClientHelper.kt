@@ -14,12 +14,13 @@ import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
 
 
-class MqttClientHelper(context: Context?) {
+class MqttClientHelper(context: Context?, doorbellModel: DoorbellModel) {
 
     companion object {
         const val TAG = "MqttClientHelper"
     }
 
+    var doorbellModel = doorbellModel
     var mqttAndroidClient: MqttAndroidClient
     val serverUri = SOLACE_MQTT_HOST
     private val clientId: String = MqttClient.generateClientId()
@@ -33,15 +34,34 @@ class MqttClientHelper(context: Context?) {
         mqttAndroidClient.setCallback(object : MqttCallbackExtended {
             override fun connectComplete(b: Boolean, s: String) {
                 Log.w(TAG, s)
+                doorbellModel.setConnectionStatus(true);
             }
 
-            override fun connectionLost(throwable: Throwable) {}
+            override fun connectionLost(throwable: Throwable) {
+                Log.e(TAG, "Connection lost", throwable)
+                doorbellModel.setConnectionStatus(false)
+            }
+
             @Throws(Exception::class)
             override fun messageArrived(
                 topic: String,
-                mqttMessage: MqttMessage
+                message: MqttMessage
             ) {
-                Log.w(TAG, mqttMessage.toString())
+                val payload = message.toString()
+                Log.d(DoorbellModel.TAG, "Message received : $topic: $payload")
+
+                if (topic.contains("proximity/control")) {
+                    if (payload.equals("ping") || payload.equals("connected")) {
+                        doorbellModel.handlePing()
+                    } else {
+                        doorbellModel.handleSensorDisconnect()
+                    }
+                }
+
+                if (topic.equals("proximity/data")) {
+                    doorbellModel.handleData()
+                }
+
             }
 
             override fun deliveryComplete(iMqttDeliveryToken: IMqttDeliveryToken) {}
@@ -58,7 +78,7 @@ class MqttClientHelper(context: Context?) {
         mqttConnectOptions.connectionTimeout = SOLACE_CONNECTION_TIMEOUT
         mqttConnectOptions.keepAliveInterval = SOLACE_CONNECTION_KEEP_ALIVE_INTERVAL
         try {
-            mqttAndroidClient.connect(mqttConnectOptions, null, object : IMqttActionListener {
+             mqttAndroidClient.connect(mqttConnectOptions, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
                     val disconnectedBufferOptions =
                         DisconnectedBufferOptions()
@@ -79,6 +99,11 @@ class MqttClientHelper(context: Context?) {
         } catch (ex: MqttException) {
             ex.printStackTrace()
         }
+    }
+
+    fun disconnect() {
+        mqttAndroidClient.disconnect();
+        doorbellModel.setConnectionStatus(false)
     }
 
     fun subscribe(subscriptionTopic: String, qos: Int = 0) {

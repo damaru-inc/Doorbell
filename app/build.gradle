@@ -59,9 +59,16 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1"
 
-    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.1.1'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
 
+    // Mike: from https://stackoverflow.com/questions/45696559/java-lang-noclassdeffounderror-failed-resolution-of-landroid-support-v4-conten
+    implementation 'com.android.support:support-v4:33.0.0'
+    // From googling Didn't find class "androidx.localbroadcastmanager.content.LocalBroadcastManager"
+    implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
+    // from https://stackoverflow.com/questions/68228666/targeting-s-version-10000-and-above-requires-that-one-of-flag-immutable-or-fl
+    //implementation 'androidx.work:work-runtime:2.7.0-alpha05'
+    //implementation 'androidx.work:work-runtime-ktx:2.8.1'
 
 /*
     implementation 'androidx.core:core-ktx:1.8.0'

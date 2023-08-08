@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -44,6 +45,9 @@ class MainActivity : ComponentActivity() {
     val channelId = "doorbell"
     val notificationId = 1
 
+    private lateinit var doorbellModel : DoorbellModel
+    private lateinit var mqttClient : MqttClientHelper
+
     private val mediaPlayer by lazy {
         MediaPlayer.create(this, R.raw.dingdong)
     }
@@ -55,14 +59,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        createNotificationChannel()
-        var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
+//        createNotificationChannel()
+        doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
 
         doorbellModel.setBellCallback {
             Log.d(TAG, "Bell!!!")
             mediaPlayer?.start()
-            doNotification(applicationContext)
+            //doNotification(applicationContext)
         }
+
+        mqttClient = MqttClientHelper(this, doorbellModel)
 
         setContent {
             DoorbellTheme {
@@ -138,9 +144,27 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         Log.d(TAG, "onDestroy")
         super.onDestroy()
-        var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
-        doorbellModel.destroy()
+        //var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
+        mqttClient.destroy()
 
+    }
+
+
+    fun toggleConnect(doConnect: Boolean) {
+
+        Log.d(DoorbellModel.TAG, "toggleConnect: $doConnect $doorbellModel.connected")
+        if (doConnect) {
+            if (mqttClient.isConnected()) {
+                Log.d(DoorbellModel.TAG, "connectClient: already connected.")
+                return;
+            }
+            mqttClient.connect()
+        } else {
+            if (mqttClient.isConnected()) {
+                    mqttClient.disconnect()
+            }
+//            doorbellModel.setConnectionStatus(false) // redundant?
+        }
     }
 }
 
@@ -180,13 +204,15 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     doorbellModel: DoorbellModel = viewModel()
 ) {
+    val mainActivity = LocalContext.current as MainActivity
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         StatusPane(modifier = modifier.weight(1.0f), doorbellModel = doorbellModel)
         ButtonBar(
             connected = doorbellModel.connected.value,
-            onConnect = { checked -> doorbellModel.toggleConnect(checked) },
+            onConnect = { checked -> mainActivity.toggleConnect(checked) },
+            //onConnect = { checked -> doorbellModel.toggleConnect(checked) },
             sendData = { doorbellModel.handleData() },
             sendPing = { doorbellModel.handlePing() },
             sendDisconnect = { doorbellModel.handleSensorDisconnect() },
@@ -205,20 +231,6 @@ fun StatusPane(
         modifier = modifier.padding(4.dp)
         //horizontalAlignment = Alignment.CenterHorizontally
     ) {
-//        Card(
-//            modifier = modifier
-//                .padding(4.dp)
-//                .weight(0.1f)
-//                .fillMaxWidth(1f),
-//            shape = CardDefaults.shape,
-//            colors = getCardColors(doorbellModel.connected.value)
-//        ) {
-//            Text(
-//                text = "Connected",
-//                modifier = modifier.align(Alignment.CenterHorizontally)
-//            )
-//        }
-
         Card(
             modifier = modifier
                 .padding(4.dp)
