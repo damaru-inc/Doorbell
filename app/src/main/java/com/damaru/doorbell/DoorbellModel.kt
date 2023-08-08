@@ -1,23 +1,10 @@
 package com.damaru.doorbell
 
-import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions
-import org.eclipse.paho.client.mqttv3.IMqttActionListener
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-import org.eclipse.paho.client.mqttv3.IMqttToken
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient
-import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions
-import org.eclipse.paho.client.mqttv3.MqttException
-import org.eclipse.paho.client.mqttv3.MqttMessage
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Timer
-import kotlin.concurrent.schedule
 
 enum class ConnectionState {
     CONNECTED, DATA_PRESENT, DISCONNECTED, UNKNOWN
@@ -35,6 +22,7 @@ class DoorbellModel : ViewModel() {
     private val _sensorConnected = mutableStateOf<ConnectionState>(ConnectionState.UNKNOWN)
     private val _lastMessage = mutableStateOf<String>("")
     private val _lastMessageReceived = mutableStateOf<String>("")
+    private val _deliberatelyDisconnected = mutableStateOf<Boolean>(false)
 
     private var bellCallback : () -> Unit = {}
 
@@ -50,6 +38,8 @@ class DoorbellModel : ViewModel() {
     val lastMessageReceived: State<String>
         get() = _lastMessageReceived
 
+    val deliberatelyDisconnected: State<Boolean>
+        get() = _deliberatelyDisconnected
 
     fun setConnectionStatus(connected: Boolean) {
         if (connected) {
@@ -58,6 +48,10 @@ class DoorbellModel : ViewModel() {
             _connected.value = ConnectionState.DISCONNECTED
             _sensorConnected.value = ConnectionState.UNKNOWN
         }
+    }
+
+    fun setDeliberatelyDisconnected(connected: Boolean) {
+        _deliberatelyDisconnected.value = connected
     }
 
     fun handleMessage(message : String) {

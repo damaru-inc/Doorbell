@@ -1,151 +1,108 @@
 package com.damaru.doorbell
 
-import android.content.Context
 import android.util.Log
-import org.eclipse.paho.android.service.MqttAndroidClient
-import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions
-import org.eclipse.paho.client.mqttv3.IMqttActionListener
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-import org.eclipse.paho.client.mqttv3.IMqttToken
-import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
-import org.eclipse.paho.client.mqttv3.MqttClient
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions
-import org.eclipse.paho.client.mqttv3.MqttException
-import org.eclipse.paho.client.mqttv3.MqttMessage
+import com.hivemq.client.mqtt.MqttClient
+import com.hivemq.client.mqtt.lifecycle.MqttClientConnectedContext
+import com.hivemq.client.mqtt.lifecycle.MqttClientConnectedListener
+import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedContext
+import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedListener
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
+import com.hivemq.client.mqtt.mqtt5.message.auth.Mqtt5SimpleAuth
+import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
 
 
-class MqttClientHelper(context: Context?, doorbellModel: DoorbellModel) {
+class MqttClientHelper(doorbellModel: DoorbellModel) {
 
     companion object {
         const val TAG = "MqttClientHelper"
     }
 
     var doorbellModel = doorbellModel
-    var mqttAndroidClient: MqttAndroidClient
-    val serverUri = SOLACE_MQTT_HOST
-    private val clientId: String = MqttClient.generateClientId()
-
-    fun setCallback(callback: MqttCallbackExtended?) {
-        mqttAndroidClient.setCallback(callback)
-    }
+    var mqttClient: Mqtt5AsyncClient
+    val serverUri = SOLACE_MQTT_URI
+    private val clientId: String = "Pixel7"
+    var clientIsConnected = false
 
     init {
-        mqttAndroidClient = MqttAndroidClient(context, serverUri, clientId)
-        mqttAndroidClient.setCallback(object : MqttCallbackExtended {
-            override fun connectComplete(b: Boolean, s: String) {
-                Log.w(TAG, s)
+        val auth = Mqtt5SimpleAuth.builder()
+            .username(SOLACE_CLIENT_USER_NAME)
+            .password(SOLACE_CLIENT_PASSWORD.toByteArray())
+            .build();
+
+        val connectedListener = object : MqttClientConnectedListener {
+            override fun onConnected(context: MqttClientConnectedContext) {
+                Log.w(TAG, "Connected to ${context.clientConfig.serverHost}")
+                connected()
                 doorbellModel.setConnectionStatus(true);
             }
+        }
 
-            override fun connectionLost(throwable: Throwable) {
-                Log.e(TAG, "Connection lost", throwable)
-                doorbellModel.setConnectionStatus(false)
+        val disConnectedListener = object : MqttClientDisconnectedListener {
+            override fun onDisconnected(context: MqttClientDisconnectedContext) {
+                Log.w(TAG, "Disconnected from ${context.clientConfig.serverHost}")
+                doorbellModel.setConnectionStatus(false);
             }
+        }
 
-            @Throws(Exception::class)
-            override fun messageArrived(
-                topic: String,
-                message: MqttMessage
-            ) {
-                val payload = message.toString()
-                Log.d(DoorbellModel.TAG, "Message received : $topic: $payload")
-
-                if (topic.contains("proximity/control")) {
-                    if (payload.equals("ping") || payload.equals("connected")) {
-                        doorbellModel.handlePing()
-                    } else {
-                        doorbellModel.handleSensorDisconnect()
-                    }
-                }
-
-                if (topic.equals("proximity/data")) {
-                    doorbellModel.handleData()
-                }
-
-            }
-
-            override fun deliveryComplete(iMqttDeliveryToken: IMqttDeliveryToken) {}
-        })
-//        connect()
+        mqttClient = MqttClient.builder()
+            .identifier(clientId)
+            .serverHost(SOLACE_MQTT_HOST)
+            .serverPort(SOLACE_MQTT_PORT)
+            .automaticReconnectWithDefaultConfig()
+            .addConnectedListener(connectedListener)
+            .addDisconnectedListener(disConnectedListener)
+            .useMqttVersion5()
+            .simpleAuth(auth)
+            .buildAsync()
     }
 
-    fun connect() {
-        val mqttConnectOptions = MqttConnectOptions()
-        mqttConnectOptions.isAutomaticReconnect = SOLACE_CONNECTION_RECONNECT
-        mqttConnectOptions.isCleanSession = SOLACE_CONNECTION_CLEAN_SESSION
-        mqttConnectOptions.userName = SOLACE_CLIENT_USER_NAME
-        mqttConnectOptions.password = SOLACE_CLIENT_PASSWORD.toCharArray()
-        mqttConnectOptions.connectionTimeout = SOLACE_CONNECTION_TIMEOUT
-        mqttConnectOptions.keepAliveInterval = SOLACE_CONNECTION_KEEP_ALIVE_INTERVAL
-        try {
-             mqttAndroidClient.connect(mqttConnectOptions, null, object : IMqttActionListener {
-                override fun onSuccess(asyncActionToken: IMqttToken) {
-                    val disconnectedBufferOptions =
-                        DisconnectedBufferOptions()
-                    disconnectedBufferOptions.isBufferEnabled = true
-                    disconnectedBufferOptions.bufferSize = 100
-                    disconnectedBufferOptions.isPersistBuffer = false
-                    disconnectedBufferOptions.isDeleteOldestMessages = false
-                    mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
-                }
+    fun messageCallback(publish : Mqtt5Publish) {
+        val payload = String(publish.payloadAsBytes)
+        val topic = publish.topic.toString()
+        Log.d(DoorbellModel.TAG, "Message received : $topic: $payload")
 
-                override fun onFailure(
-                    asyncActionToken: IMqttToken,
-                    exception: Throwable
-                ) {
-                    Log.w(TAG, "Failed to connect to: $serverUri ; $exception")
-                }
-            })
-        } catch (ex: MqttException) {
-            ex.printStackTrace()
+        if (topic.contains("proximity/control")) {
+            if (payload.equals("ping") || payload.equals("connected")) {
+                doorbellModel.handlePing()
+            } else {
+                doorbellModel.handleSensorDisconnect()
+            }
         }
+
+        if (topic.equals("proximity/data")) {
+            doorbellModel.handleData()
+        }
+    }
+
+    fun connectFromInit() {
+        if (!doorbellModel.deliberatelyDisconnected.value) {
+            mqttClient.connect()
+        }
+    }
+    fun connect() {
+        mqttClient.connect()
+        doorbellModel.setDeliberatelyDisconnected(false)
     }
 
     fun disconnect() {
-        mqttAndroidClient.disconnect();
-        doorbellModel.setConnectionStatus(false)
+        mqttClient.disconnect()
+        clientIsConnected = false;
+        doorbellModel.setDeliberatelyDisconnected(true)
     }
 
-    fun subscribe(subscriptionTopic: String, qos: Int = 0) {
-        try {
-            mqttAndroidClient.subscribe(subscriptionTopic, qos, null, object : IMqttActionListener {
-                override fun onSuccess(asyncActionToken: IMqttToken) {
-                    Log.w(TAG, "Subscribed to topic '$subscriptionTopic'")
-                }
-
-                override fun onFailure(
-                    asyncActionToken: IMqttToken,
-                    exception: Throwable
-
-                ) {
-                    Log.w(TAG, "Subscription to topic '$subscriptionTopic' failed!")
-                }
-            })
-        } catch (ex: MqttException) {
-            System.err.println("Exception whilst subscribing to topic '$subscriptionTopic'")
-            ex.printStackTrace()
-        }
-    }
-
-    fun publish(topic: String, msg: String, qos: Int = 0) {
-        try {
-            val message = MqttMessage()
-            message.payload = msg.toByteArray()
-            mqttAndroidClient.publish(topic, message.payload, qos, false)
-            Log.d(TAG, "Message published to topic `$topic`: $msg")
-        } catch (e: MqttException) {
-            Log.d(TAG, "Error Publishing to $topic: " + e.message)
-            e.printStackTrace()
-        }
-
+    fun connected() {
+        mqttClient.subscribeWith()
+            .topicFilter("proximity/#")
+            .callback(::messageCallback)
+            .send()
+        clientIsConnected = true;
     }
 
     fun isConnected() : Boolean {
-        return mqttAndroidClient.isConnected
+        return clientIsConnected
     }
 
     fun destroy() {
-        mqttAndroidClient.unregisterResources()
-        mqttAndroidClient.disconnect()
+        mqttClient.disconnect()
     }
 }

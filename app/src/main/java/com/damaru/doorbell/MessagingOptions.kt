@@ -8,7 +8,9 @@ package com.damaru.doorbell
 // https://console.solace.cloud/services/ -> <your-service> -> 'Connect' -> 'MQTT'
 const val SOLACE_CLIENT_USER_NAME = "solace-cloud-client"
 const val SOLACE_CLIENT_PASSWORD = "your-password"
-const val SOLACE_MQTT_HOST = "tcp://mr-connection-your-host.messaging.solace.cloud:1883"
+const val SOLACE_MQTT_HOST = "mr-connection-your-host.messaging.solace.cloud"
+const val SOLACE_MQTT_PORT = 1883
+const val SOLACE_MQTT_URI = "tcp://$SOLACE_MQTT_HOST:$SOLACE_MQTT_PORT"
 
 // Other options
 const val SOLACE_CONNECTION_TIMEOUT = 3

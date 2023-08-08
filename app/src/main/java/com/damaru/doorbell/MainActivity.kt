@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
     val notificationId = 1
 
     private lateinit var doorbellModel : DoorbellModel
-    private lateinit var mqttClient : MqttClientHelper
+    private lateinit var mqttClientHelper : MqttClientHelper
 
     private val mediaPlayer by lazy {
         MediaPlayer.create(this, R.raw.dingdong)
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
             //doNotification(applicationContext)
         }
 
-        mqttClient = MqttClientHelper(this, doorbellModel)
+        mqttClientHelper = MqttClientHelper(doorbellModel)
 
         setContent {
             DoorbellTheme {
@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        mqttClientHelper.connectFromInit()
     }
 
     private fun doNotification(context: Context) {
@@ -145,7 +147,7 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onDestroy")
         super.onDestroy()
         //var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
-        mqttClient.destroy()
+        mqttClientHelper.destroy()
 
     }
 
@@ -154,14 +156,14 @@ class MainActivity : ComponentActivity() {
 
         Log.d(DoorbellModel.TAG, "toggleConnect: $doConnect $doorbellModel.connected")
         if (doConnect) {
-            if (mqttClient.isConnected()) {
+            if (mqttClientHelper.isConnected()) {
                 Log.d(DoorbellModel.TAG, "connectClient: already connected.")
                 return;
             }
-            mqttClient.connect()
+            mqttClientHelper.connect()
         } else {
-            if (mqttClient.isConnected()) {
-                    mqttClient.disconnect()
+            if (mqttClientHelper.isConnected()) {
+                    mqttClientHelper.disconnect()
             }
 //            doorbellModel.setConnectionStatus(false) // redundant?
         }
