@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -72,7 +73,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DoorbellTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -83,6 +83,9 @@ class MainActivity : ComponentActivity() {
         }
 
         mqttClientHelper.connectFromInit()
+        val intent = Intent(this,MessagingService::class.java)
+        intent.putExtra("name","The messaging service")
+        startService(intent)
     }
 
     private fun doNotification(context: Context) {

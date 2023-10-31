@@ -80,6 +80,7 @@ class DoorbellModel : ViewModel() {
     fun setBellCallback(callback : () -> Unit) {
         bellCallback = callback;
     }
+
     fun testMode() : Boolean {
         return false
     }
