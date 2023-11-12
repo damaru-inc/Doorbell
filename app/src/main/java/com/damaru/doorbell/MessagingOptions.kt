@@ -1,20 +1,7 @@
 package com.damaru.doorbell
 
-
-// Solace PubSub+ Broker Options
-
-// Fill in your Solace Cloud PubSub+ Broker's 'MQTT Host' and 'Password' options.
-// This information can be found under:
-// https://console.solace.cloud/services/ -> <your-service> -> 'Connect' -> 'MQTT'
-const val SOLACE_CLIENT_USER_NAME = "solace-cloud-client"
-const val SOLACE_CLIENT_PASSWORD = "your-password"
-const val SOLACE_MQTT_HOST = "mr-connection-your-host.messaging.solace.cloud"
-const val SOLACE_MQTT_PORT = 1883
-const val SOLACE_MQTT_URI = "tcp://$SOLACE_MQTT_HOST:$SOLACE_MQTT_PORT"
-
-// Other options
-const val SOLACE_CONNECTION_TIMEOUT = 3
-const val SOLACE_CONNECTION_KEEP_ALIVE_INTERVAL = 60
-const val SOLACE_CONNECTION_CLEAN_SESSION = true
-const val SOLACE_CONNECTION_RECONNECT = true
-
+const val MQTT_USER_NAME = ""
+const val MQTT_PASSWORD = ""
+const val MQTT_HOST = "192.168.2.30"
+const val MQTT_PORT = 1883
+const val MQTT_URI = "tcp://$MQTT_HOST:$MQTT_PORT"

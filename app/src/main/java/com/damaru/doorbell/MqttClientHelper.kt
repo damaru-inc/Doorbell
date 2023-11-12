@@ -19,14 +19,14 @@ class MqttClientHelper(doorbellModel: DoorbellModel) {
 
     var doorbellModel = doorbellModel
     var mqttClient: Mqtt5AsyncClient
-    val serverUri = SOLACE_MQTT_URI
+    val serverUri = MQTT_URI
     private val clientId: String = "Pixel7"
     var clientIsConnected = false
 
     init {
         val auth = Mqtt5SimpleAuth.builder()
-            .username(SOLACE_CLIENT_USER_NAME)
-            .password(SOLACE_CLIENT_PASSWORD.toByteArray())
+            .username(MQTT_USER_NAME)
+            .password(MQTT_PASSWORD.toByteArray())
             .build();
 
         val connectedListener = object : MqttClientConnectedListener {
@@ -46,14 +46,15 @@ class MqttClientHelper(doorbellModel: DoorbellModel) {
 
         mqttClient = MqttClient.builder()
             .identifier(clientId)
-            .serverHost(SOLACE_MQTT_HOST)
-            .serverPort(SOLACE_MQTT_PORT)
+            .serverHost(MQTT_HOST)
+            .serverPort(MQTT_PORT)
             .automaticReconnectWithDefaultConfig()
             .addConnectedListener(connectedListener)
             .addDisconnectedListener(disConnectedListener)
             .useMqttVersion5()
             .simpleAuth(auth)
             .buildAsync()
+
     }
 
     fun messageCallback(publish : Mqtt5Publish) {
