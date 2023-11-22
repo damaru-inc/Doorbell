@@ -82,6 +82,6 @@ class DoorbellModel : ViewModel() {
     }
 
     fun testMode() : Boolean {
-        return false
+        return true
     }
 }

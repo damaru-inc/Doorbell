@@ -43,8 +43,6 @@ import com.damaru.doorbell.ui.theme.DoorbellTheme
 
 class MainActivity : ComponentActivity() {
 
-    val channelId = "doorbell"
-    val notificationId = 1
 
     private lateinit var doorbellModel : DoorbellModel
     private lateinit var mqttClientHelper : MqttClientHelper
@@ -54,19 +52,22 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        val channelId = "doorbell"
+        val notificationId = 1
         const val TAG = "DoorbellUI"
     }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        createNotificationChannel()
+        Log.d(TAG, "onCreate")
+        createNotificationChannel()
         doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
 
         doorbellModel.setBellCallback {
             Log.d(TAG, "Bell!!!")
             mediaPlayer?.start()
-            //doNotification(applicationContext)
+         //   doNotification(applicationContext)
         }
 
         mqttClientHelper = MqttClientHelper(doorbellModel)
@@ -89,7 +90,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun doNotification(context: Context) {
-        var builder = NotificationCompat.Builder(context, channelId)
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_doorbell)
             .setContentTitle("Dog!")
             .setContentText("Woof!")
@@ -97,6 +98,7 @@ class MainActivity : ComponentActivity() {
 
         with(NotificationManagerCompat.from(context)) {
             // notificationId is a unique int for each notification that you must define
+
             if (ActivityCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
@@ -114,7 +116,9 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val areNotificationsEnabled = areNotificationsEnabled()
-            Log.d(TAG, "Doing notify. areNotificationsEnabled: " + areNotificationsEnabled)
+            Log.d(TAG, "Doing notify. areNotificationsEnabled: $areNotificationsEnabled")
+
+
             notify(notificationId, builder.build())
         }
     }
@@ -140,6 +144,7 @@ class MainActivity : ComponentActivity() {
             val notificationManager: NotificationManager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "Set up the notification channel.")
         } else {
             Log.w(TAG, "Couldn't set up the notification channel.")
         }
@@ -161,7 +166,7 @@ class MainActivity : ComponentActivity() {
         if (doConnect) {
             if (mqttClientHelper.isConnected()) {
                 Log.d(DoorbellModel.TAG, "connectClient: already connected.")
-                return;
+                return
             }
             mqttClientHelper.connect()
         } else {
@@ -194,14 +199,14 @@ fun getCardColors(connectionState: ConnectionState): CardColors {
 @Composable
 fun getConnectionDescription(connectionState: ConnectionState): String {
 
-    var status = when (connectionState) {
+    val status = when (connectionState) {
         ConnectionState.CONNECTED -> "connected."
         ConnectionState.DATA_PRESENT -> "connected."
         ConnectionState.DISCONNECTED -> "disconnected."
         ConnectionState.UNKNOWN -> "unknown"
     }
 
-    return "Sensor's state is " + status
+    return "Sensor's state is $status"
 }
 
 @Composable
