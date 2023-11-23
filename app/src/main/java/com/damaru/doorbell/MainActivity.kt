@@ -3,17 +3,20 @@ package com.damaru.doorbell
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,27 +37,45 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.damaru.doorbell.ui.theme.DoorbellTheme
 
-
-class MainActivity : ComponentActivity() {
-
+class MainActivity : ComponentActivity(), ConnectionAware {
 
     private lateinit var doorbellModel : DoorbellModel
-    private lateinit var mqttClientHelper : MqttClientHelper
+    private lateinit var messagingService: MessagingService
+    private var bound: Boolean = false
 
-    private val mediaPlayer by lazy {
-        MediaPlayer.create(this, R.raw.dingdong)
-    }
+    val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                Log.d(TAG, "Permission granted.")
+            } else {
+                Log.d(TAG, "Permission denied.")
+            }
+        }
 
     companion object {
         val channelId = "doorbell"
         val notificationId = 1
         const val TAG = "DoorbellUI"
+    }
+
+    private val connection = object : ServiceConnection {
+
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            val binder = service as MessagingService.LocalBinder
+            messagingService = binder.getService()
+            bound = true
+            messagingService.setActivity(this@MainActivity)
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            bound = false
+        }
     }
 
 
@@ -63,14 +84,6 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onCreate")
         createNotificationChannel()
         doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
-
-        doorbellModel.setBellCallback {
-            Log.d(TAG, "Bell!!!")
-            mediaPlayer?.start()
-         //   doNotification(applicationContext)
-        }
-
-        mqttClientHelper = MqttClientHelper(doorbellModel)
 
         setContent {
             DoorbellTheme {
@@ -83,56 +96,54 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        mqttClientHelper.connectFromInit()
         val intent = Intent(this,MessagingService::class.java)
         intent.putExtra("name","The messaging service")
         startService(intent)
     }
 
-    private fun doNotification(context: Context) {
-        val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_doorbell)
-            .setContentTitle("Dog!")
-            .setContentText("Woof!")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+    override fun onStart() {
+        super.onStart()
 
-        with(NotificationManagerCompat.from(context)) {
-            // notificationId is a unique int for each notification that you must define
-
-            if (ActivityCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                Log.d(TAG, "No permission to notify.")
-                //ActivityCompat.requestPermissions(, Manifest.permission.POST_NOTIFICATIONS)
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return
-            }
-            val areNotificationsEnabled = areNotificationsEnabled()
-            Log.d(TAG, "Doing notify. areNotificationsEnabled: $areNotificationsEnabled")
-
-
-            notify(notificationId, builder.build())
+        if (ActivityCompat.checkSelfPermission(
+                applicationContext,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+            // Bind to LocalService.
+        Intent(this, MessagingService::class.java).also { intent ->
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        unbindService(connection)
+        bound = false
+    }
+
+    @Override
+    override fun onDestroy() {
+        Log.d(TAG, "onDestroy")
+        super.onDestroy()
+        val intent = Intent(this,MessagingService::class.java)
+        stopService(intent)
     }
 
     private fun createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
+        // the NotificationChannel class is new and not in the support library.
+        // The code is the letter O, not a zero.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Log.d(TAG, "Setting up the notification channel.")
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            //val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val soundUri = Uri.parse("android.resource://"
+                    + this.packageName + "/"
+                    + R.raw.dingdong)
             val name = "doorbell"
             val descriptionText = "doorbell"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
-            // doorbell is the channel id.
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(channelId, name, importance).apply {
                 description = descriptionText
             }
@@ -150,31 +161,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Override
-    override fun onDestroy() {
-        Log.d(TAG, "onDestroy")
-        super.onDestroy()
-        //var doorbellModel = ViewModelProvider(this).get(DoorbellModel::class.java)
-        mqttClientHelper.destroy()
-
-    }
-
-
     fun toggleConnect(doConnect: Boolean) {
 
         Log.d(DoorbellModel.TAG, "toggleConnect: $doConnect $doorbellModel.connected")
-        if (doConnect) {
-            if (mqttClientHelper.isConnected()) {
-                Log.d(DoorbellModel.TAG, "connectClient: already connected.")
-                return
-            }
-            mqttClientHelper.connect()
-        } else {
-            if (mqttClientHelper.isConnected()) {
-                    mqttClientHelper.disconnect()
-            }
-//            doorbellModel.setConnectionStatus(false) // redundant?
+        if (bound) {
+            messagingService.toggleConnect(doConnect)
         }
+    }
+
+    override var connectionStatus = false
+        set(value) {
+            doorbellModel.setConnectionStatus(value)
+        }
+    override var deliberatelyDisconnected = false
+        set(value) {
+            doorbellModel.setDeliberatelyDisconnected(false)
+        }
+
+    override fun handleData() {
+        doorbellModel.handleData()
+    }
+
+    override fun handlePing() {
+        doorbellModel.handlePing()
+    }
+
+    override fun handleSensorDisconnect() {
+        doorbellModel.handleSensorDisconnect()
     }
 }
 
@@ -222,7 +235,6 @@ fun MainScreen(
         ButtonBar(
             connected = doorbellModel.connected.value,
             onConnect = { checked -> mainActivity.toggleConnect(checked) },
-            //onConnect = { checked -> doorbellModel.toggleConnect(checked) },
             sendData = { doorbellModel.handleData() },
             sendPing = { doorbellModel.handlePing() },
             sendDisconnect = { doorbellModel.handleSensorDisconnect() },

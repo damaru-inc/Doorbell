@@ -10,8 +10,6 @@ enum class ConnectionState {
     CONNECTED, DATA_PRESENT, DISCONNECTED, UNKNOWN
 }
 
-private const val MQTT_DISCONNECT_BUFFER_SIZE = 100
-
 class DoorbellModel : ViewModel() {
 
     companion object {
@@ -23,8 +21,6 @@ class DoorbellModel : ViewModel() {
     private val _lastMessage = mutableStateOf<String>("")
     private val _lastMessageReceived = mutableStateOf<String>("")
     private val _deliberatelyDisconnected = mutableStateOf<Boolean>(false)
-
-    private var bellCallback : () -> Unit = {}
 
     val connected: State<ConnectionState>
         get() = _connected
@@ -56,7 +52,6 @@ class DoorbellModel : ViewModel() {
 
     fun handleMessage(message : String) {
         _lastMessage.value = message
-        //val formatter = SimpleDateFormat("hh:mm:ss")
         val formatter = SimpleDateFormat.getTimeInstance()
         val date = Date()
         _lastMessageReceived.value = formatter.format(date)
@@ -65,7 +60,6 @@ class DoorbellModel : ViewModel() {
     fun handleData() {
         handleMessage("Dog")
         _sensorConnected.value = ConnectionState.DATA_PRESENT
-        bellCallback()
     }
 
     fun handlePing() {
@@ -77,11 +71,7 @@ class DoorbellModel : ViewModel() {
         _sensorConnected.value = ConnectionState.DISCONNECTED
     }
 
-    fun setBellCallback(callback : () -> Unit) {
-        bellCallback = callback;
-    }
-
     fun testMode() : Boolean {
-        return true
+        return false
     }
 }

@@ -11,13 +11,13 @@ import com.hivemq.client.mqtt.mqtt5.message.auth.Mqtt5SimpleAuth
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
 
 
-class MqttClientHelper(doorbellModel: DoorbellModel) {
+class MqttClientHelper(connectionAware: ConnectionAware) {
 
     companion object {
         const val TAG = "MqttClientHelper"
     }
 
-    var doorbellModel = doorbellModel
+    var connectionAware = connectionAware
     var mqttClient: Mqtt5AsyncClient
     val serverUri = MQTT_URI
     private val clientId: String = "Pixel7"
@@ -33,14 +33,14 @@ class MqttClientHelper(doorbellModel: DoorbellModel) {
             override fun onConnected(context: MqttClientConnectedContext) {
                 Log.w(TAG, "Connected to ${context.clientConfig.serverHost}")
                 connected()
-                doorbellModel.setConnectionStatus(true);
+                connectionAware.connectionStatus = true;
             }
         }
 
         val disConnectedListener = object : MqttClientDisconnectedListener {
             override fun onDisconnected(context: MqttClientDisconnectedContext) {
                 Log.w(TAG, "Disconnected from ${context.clientConfig.serverHost}")
-                doorbellModel.setConnectionStatus(false);
+                connectionAware.connectionStatus = false;
             }
         }
 
@@ -64,31 +64,31 @@ class MqttClientHelper(doorbellModel: DoorbellModel) {
 
         if (topic.contains("proximity/control")) {
             if (payload.equals("ping") || payload.equals("connected")) {
-                doorbellModel.handlePing()
+                connectionAware.handlePing()
             } else {
-                doorbellModel.handleSensorDisconnect()
+                connectionAware.handleSensorDisconnect()
             }
         }
 
         if (topic.equals("proximity/data")) {
-            doorbellModel.handleData()
+            connectionAware.handleData()
         }
     }
 
     fun connectFromInit() {
-        if (!doorbellModel.deliberatelyDisconnected.value) {
+        if (!connectionAware.deliberatelyDisconnected && !clientIsConnected) {
             mqttClient.connect()
         }
     }
     fun connect() {
         mqttClient.connect()
-        doorbellModel.setDeliberatelyDisconnected(false)
+        connectionAware.deliberatelyDisconnected = false
     }
 
     fun disconnect() {
         mqttClient.disconnect()
         clientIsConnected = false;
-        doorbellModel.setDeliberatelyDisconnected(true)
+        connectionAware.deliberatelyDisconnected = true
     }
 
     fun connected() {
