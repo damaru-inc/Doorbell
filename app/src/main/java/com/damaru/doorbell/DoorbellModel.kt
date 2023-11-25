@@ -13,7 +13,7 @@ enum class ConnectionState {
 class DoorbellModel : ViewModel() {
 
     companion object {
-        const val TAG = "Doorbell"
+        const val TAG = "DoorbellModel"
     }
 
     private val _connected = mutableStateOf<ConnectionState>(ConnectionState.DISCONNECTED)

@@ -8,8 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.media.AudioAttributes
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -111,6 +109,7 @@ class MainActivity : ComponentActivity(), ConnectionAware {
         ) {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+
             // Bind to LocalService.
         Intent(this, MessagingService::class.java).also { intent ->
             bindService(intent, connection, Context.BIND_AUTO_CREATE)
@@ -138,19 +137,21 @@ class MainActivity : ComponentActivity(), ConnectionAware {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Log.d(TAG, "Setting up the notification channel.")
             //val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val soundUri = Uri.parse("android.resource://"
-                    + this.packageName + "/"
-                    + R.raw.dingdong)
             val name = "doorbell"
             val descriptionText = "doorbell"
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(channelId, name, importance).apply {
                 description = descriptionText
             }
-            val audioAttributes: AudioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                .build()
-            channel.setSound(soundUri, audioAttributes)
+
+            // We get the service to just play the sound.
+//            val soundUri = Uri.parse("android.resource://"
+//                    + this.packageName + "/"
+//                    + R.raw.dingdong)
+//            val audioAttributes: AudioAttributes = AudioAttributes.Builder()
+//                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+//                .build()
+            // channel.setSound(soundUri, audioAttributes)
             // Register the channel with the system
             val notificationManager: NotificationManager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

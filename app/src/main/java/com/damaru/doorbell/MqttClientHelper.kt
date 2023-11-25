@@ -31,7 +31,7 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
 
         val connectedListener = object : MqttClientConnectedListener {
             override fun onConnected(context: MqttClientConnectedContext) {
-                Log.w(TAG, "Connected to ${context.clientConfig.serverHost}")
+                Log.i(TAG, "Connected to ${context.clientConfig.serverHost}")
                 connected()
                 connectionAware.connectionStatus = true;
             }
@@ -39,7 +39,7 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
 
         val disConnectedListener = object : MqttClientDisconnectedListener {
             override fun onDisconnected(context: MqttClientDisconnectedContext) {
-                Log.w(TAG, "Disconnected from ${context.clientConfig.serverHost}")
+                Log.i(TAG, "Disconnected from ${context.clientConfig.serverHost}")
                 connectionAware.connectionStatus = false;
             }
         }
@@ -60,7 +60,7 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
     fun messageCallback(publish : Mqtt5Publish) {
         val payload = String(publish.payloadAsBytes)
         val topic = publish.topic.toString()
-        Log.d(DoorbellModel.TAG, "Message received : $topic: $payload")
+        Log.d(TAG, "Message received : $topic: $payload")
 
         if (topic.contains("proximity/control")) {
             if (payload.equals("ping") || payload.equals("connected")) {
@@ -86,9 +86,11 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
     }
 
     fun disconnect() {
-        mqttClient.disconnect()
-        clientIsConnected = false;
-        connectionAware.deliberatelyDisconnected = true
+        if (clientIsConnected) {
+            mqttClient.disconnect()
+            clientIsConnected = false;
+            connectionAware.deliberatelyDisconnected = true
+        }
     }
 
     fun connected() {

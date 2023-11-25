@@ -1,22 +1,26 @@
 package com.damaru.doorbell
 
-import android.Manifest
+import android.app.Notification
+import android.app.PendingIntent
+import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.Service
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.media.MediaPlayer
 import android.os.Binder
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
+
 
 class MessagingService : Service(), ConnectionAware {
 
     private lateinit var mqttClientHelper : MqttClientHelper
     private var activity : ConnectionAware? = null
     private val binder = LocalBinder()
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var mediaPlayer : MediaPlayer? = null
 
     companion object {
         const val TAG = "MessagingService"
@@ -29,7 +33,6 @@ class MessagingService : Service(), ConnectionAware {
 
     override fun onBind(intent: Intent?): IBinder? {
         log("onBind: $intent")
-        mqttClientHelper.connectFromInit()
         return binder
     }
 
@@ -40,22 +43,37 @@ class MessagingService : Service(), ConnectionAware {
     }
 
     override fun onCreate() {
+        log("onCreate")
         super.onCreate()
         mqttClientHelper = MqttClientHelper(this)
-        log("onCreate")
+        mqttClientHelper.connectFromInit()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        log("onStartCommand intent: $intent")
         val name=intent?.getStringExtra("name")
         Toast.makeText(
-            applicationContext, "Service has started running in the background",
+            applicationContext, "Service has started",
             Toast.LENGTH_SHORT
         ).show()
         if (name != null) {
             log("service name: $name")
         }
-        log("onStartCommand")
-        return START_STICKY
+
+        mediaPlayer = MediaPlayer.create(this, R.raw.dingdong)
+
+        var notification = buildNotification()
+        startForeground(1, notification)
+
+        // research this:
+//        wakeLock =
+//            (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
+//                newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MessagingService::lock").apply {
+//                    acquire()
+//                }
+//            }
+
+        return START_NOT_STICKY
     }
 
     override fun stopService(name: Intent?): Boolean {
@@ -64,13 +82,14 @@ class MessagingService : Service(), ConnectionAware {
     }
 
     override fun onDestroy() {
-        Toast.makeText(
-            applicationContext, "Service execution completed",
-            Toast.LENGTH_SHORT
-        ).show()
         log("onDestroy")
-        mqttClientHelper.destroy()
         super.onDestroy()
+//        Toast.makeText(
+//            applicationContext, "Service execution completed",
+//            Toast.LENGTH_SHORT
+//        ).show()
+        mqttClientHelper.destroy()
+        mediaPlayer?.release()
     }
 
     fun log(str:String){
@@ -78,10 +97,12 @@ class MessagingService : Service(), ConnectionAware {
     }
 
     fun setActivity(connectionAware: ConnectionAware) {
+        log("setActivity $connectionAware")
         activity = connectionAware
     }
 
     //@SuppressLint("MissingPermission")
+    /*
     private fun doNotification() {
         val builder = NotificationCompat.Builder(applicationContext, MainActivity.channelId)
             .setSmallIcon(R.mipmap.ic_doorbell)
@@ -104,6 +125,24 @@ class MessagingService : Service(), ConnectionAware {
         }
     }
 
+     */
+
+    private fun buildNotification() : Notification {
+        val notificationIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0, notificationIntent, FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(applicationContext, MainActivity.channelId)
+            .setSmallIcon(R.mipmap.ic_doorbell)
+            .setContentTitle("Dog!")
+            .setContentText("Woof!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .build()
+    }
+
     override var connectionStatus = false
          set(value) {
              field = value
@@ -116,8 +155,10 @@ class MessagingService : Service(), ConnectionAware {
         }
 
     override fun handleData() {
+        log("handleData")
         activity?.handleData()
-        doNotification()
+        mediaPlayer?.start()
+        //doNotification()
     }
 
     override fun handlePing() {
@@ -125,12 +166,12 @@ class MessagingService : Service(), ConnectionAware {
     }
 
     override fun handleSensorDisconnect() {
+        log("handleSensorDisconnect")
         activity?.handleSensorDisconnect()
     }
 
     fun toggleConnect(doConnect: Boolean) {
-
-        Log.d(DoorbellModel.TAG, "toggleConnect: $doConnect")
+        log("toggleConnect $doConnect")
         if (doConnect) {
             if (mqttClientHelper.isConnected()) {
                 Log.d(DoorbellModel.TAG, "connectClient: already connected.")
@@ -138,9 +179,7 @@ class MessagingService : Service(), ConnectionAware {
             }
             mqttClientHelper.connect()
         } else {
-            if (mqttClientHelper.isConnected()) {
-                mqttClientHelper.disconnect()
-            }
+            mqttClientHelper.disconnect()
         }
     }
 }
