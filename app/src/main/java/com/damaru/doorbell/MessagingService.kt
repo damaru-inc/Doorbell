@@ -4,11 +4,14 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -21,6 +24,7 @@ class MessagingService : Service(), ConnectionAware {
     private val binder = LocalBinder()
     private var wakeLock: PowerManager.WakeLock? = null
     private var mediaPlayer : MediaPlayer? = null
+    private var vibrator : Vibrator? = null;
 
     companion object {
         const val TAG = "MessagingService"
@@ -61,6 +65,7 @@ class MessagingService : Service(), ConnectionAware {
         }
 
         mediaPlayer = MediaPlayer.create(this, R.raw.dingdong)
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         var notification = buildNotification()
         startForeground(1, notification)
@@ -158,6 +163,7 @@ class MessagingService : Service(), ConnectionAware {
         log("handleData")
         activity?.handleData()
         mediaPlayer?.start()
+        vibrator?.vibrate(VibrationEffect.createOneShot(1000, 255))
         //doNotification()
     }
 
