@@ -1,5 +1,6 @@
 package com.damaru.doorbell
 
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -47,6 +48,7 @@ class DoorbellModel : ViewModel() {
     }
 
     fun setDeliberatelyDisconnected(connected: Boolean) {
+        Log.d(TAG, "setDeliberatelyDisconnected: $connected")
         _deliberatelyDisconnected.value = connected
     }
 
