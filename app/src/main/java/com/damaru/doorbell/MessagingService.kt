@@ -22,7 +22,7 @@ class MessagingService : Service(), ConnectionAware {
     private var activity : ConnectionAware? = null
     private val binder = LocalBinder()
     private var mediaPlayer : MediaPlayer? = null
-    private var vibrator : Vibrator? = null;
+    private var vibrator : Vibrator? = null
 
     companion object {
         const val TAG = "MessagingService"
@@ -33,14 +33,14 @@ class MessagingService : Service(), ConnectionAware {
         fun getService(): MessagingService = this@MessagingService
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder {
         log("onBind: $intent")
         return binder
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         log("onUnbind: $intent")
-        activity = null;
+        activity = null
         return super.onUnbind(intent)
     }
 
@@ -65,7 +65,7 @@ class MessagingService : Service(), ConnectionAware {
         mediaPlayer = MediaPlayer.create(this, R.raw.dingdong)
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-        var notification = buildNotification()
+        val notification = buildNotification()
         startForeground(1, notification)
 
         // research this:
@@ -96,7 +96,7 @@ class MessagingService : Service(), ConnectionAware {
     }
 
     fun log(str:String){
-        Log.d(TAG, "$str")
+        Log.d(TAG, str)
     }
 
     fun setActivity(connectionAware: ConnectionAware) {

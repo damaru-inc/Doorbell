@@ -11,15 +11,13 @@ import com.hivemq.client.mqtt.mqtt5.message.auth.Mqtt5SimpleAuth
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
 
 
-class MqttClientHelper(connectionAware: ConnectionAware) {
+class MqttClientHelper(var connectionAware: ConnectionAware) {
 
     companion object {
         const val TAG = "MqttClientHelper"
     }
 
-    var connectionAware = connectionAware
     var mqttClient: Mqtt5AsyncClient
-    val serverUri = MQTT_URI
     private val clientId: String = "Pixel7"
     var clientIsConnected = false
 
@@ -27,20 +25,20 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
         val auth = Mqtt5SimpleAuth.builder()
             .username(MQTT_USER_NAME)
             .password(MQTT_PASSWORD.toByteArray())
-            .build();
+            .build()
 
         val connectedListener = object : MqttClientConnectedListener {
             override fun onConnected(context: MqttClientConnectedContext) {
                 Log.i(TAG, "Connected to ${context.clientConfig.serverHost}")
                 connected()
-                connectionAware.connectionStatus = true;
+                connectionAware.connectionStatus = true
             }
         }
 
         val disConnectedListener = object : MqttClientDisconnectedListener {
             override fun onDisconnected(context: MqttClientDisconnectedContext) {
                 Log.i(TAG, "Disconnected from ${context.clientConfig.serverHost}")
-                connectionAware.connectionStatus = false;
+                connectionAware.connectionStatus = false
             }
         }
 
@@ -91,7 +89,7 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
         Log.i(TAG, "connect clientIsConnected: $clientIsConnected")
         if (clientIsConnected) {
             mqttClient.disconnect()
-            clientIsConnected = false;
+            clientIsConnected = false
             connectionAware.deliberatelyDisconnected = true
         }
     }
@@ -102,7 +100,7 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
             .topicFilter("proximity/#")
             .callback(::messageCallback)
             .send()
-        clientIsConnected = true;
+        clientIsConnected = true
         Log.i(TAG, "connected clientIsConnected: $clientIsConnected")
     }
 

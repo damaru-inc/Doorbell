@@ -58,7 +58,6 @@ class MainActivity : ComponentActivity(), ConnectionAware {
 
     companion object {
         val channelId = "doorbell"
-        val notificationId = 1
         const val TAG = "DoorbelMainActivity"
     }
 
