@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity(), ConnectionAware {
     companion object {
         val channelId = "doorbell"
         val notificationId = 1
-        const val TAG = "DoorbellUI"
+        const val TAG = "DoorbelMainActivity"
     }
 
     private val connection = object : ServiceConnection {
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity(), ConnectionAware {
         }
 
         val intent = Intent(this,MessagingService::class.java)
-        intent.putExtra("name","The messaging service")
+        intent.putExtra("name","DoorbellIntent")
         startService(intent)
     }
 
@@ -172,10 +172,12 @@ class MainActivity : ComponentActivity(), ConnectionAware {
 
     override var connectionStatus = false
         set(value) {
+            Log.d(DoorbellModel.TAG, "setConnectionStatus: $value")
             doorbellModel.setConnectionStatus(value)
         }
     override var deliberatelyDisconnected = false
         set(value) {
+            Log.d(DoorbellModel.TAG, "deliberatelyDisconnected")
             doorbellModel.setDeliberatelyDisconnected(false)
         }
 
@@ -188,6 +190,7 @@ class MainActivity : ComponentActivity(), ConnectionAware {
     }
 
     override fun handleSensorDisconnect() {
+        Log.d(DoorbellModel.TAG, "handleSensorDisconnect")
         doorbellModel.handleSensorDisconnect()
     }
 }

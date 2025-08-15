@@ -76,16 +76,19 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
     }
 
     fun connectFromInit() {
+        Log.i(TAG, "connectFromInit: clientIsConnected: $clientIsConnected deliberatelyDisconnected: ${connectionAware.deliberatelyDisconnected}")
         if (!connectionAware.deliberatelyDisconnected && !clientIsConnected) {
             mqttClient.connect()
         }
     }
     fun connect() {
+        Log.i(TAG, "connect")
         mqttClient.connect()
         connectionAware.deliberatelyDisconnected = false
     }
 
     fun disconnect() {
+        Log.i(TAG, "connect clientIsConnected: $clientIsConnected")
         if (clientIsConnected) {
             mqttClient.disconnect()
             clientIsConnected = false;
@@ -94,11 +97,13 @@ class MqttClientHelper(connectionAware: ConnectionAware) {
     }
 
     fun connected() {
+        Log.i(TAG, "connected clientIsConnected: $clientIsConnected")
         mqttClient.subscribeWith()
             .topicFilter("proximity/#")
             .callback(::messageCallback)
             .send()
         clientIsConnected = true;
+        Log.i(TAG, "connected clientIsConnected: $clientIsConnected")
     }
 
     fun isConnected() : Boolean {

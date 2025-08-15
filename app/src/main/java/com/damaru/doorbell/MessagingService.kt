@@ -9,7 +9,6 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Binder
 import android.os.IBinder
-import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
@@ -22,7 +21,6 @@ class MessagingService : Service(), ConnectionAware {
     private lateinit var mqttClientHelper : MqttClientHelper
     private var activity : ConnectionAware? = null
     private val binder = LocalBinder()
-    private var wakeLock: PowerManager.WakeLock? = null
     private var mediaPlayer : MediaPlayer? = null
     private var vibrator : Vibrator? = null;
 
